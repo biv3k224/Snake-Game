@@ -7,9 +7,9 @@ import javax.swing.JPanel;
 public class GamePanel extends JPanel implements ActionListener{
 
 	//Declare all the variables used in the code
-	static final int SCREEN_WIDTH = 600;
-	static final int SCREEN_HEIGHT = 600;
-	static final int UNIT_SIZE = 25;
+	static int SCREEN_WIDTH = 600;
+	static int SCREEN_HEIGHT = 600;
+	static int UNIT_SIZE = 25;
 	static final int GAME_UNITS = (SCREEN_WIDTH*SCREEN_HEIGHT)/UNIT_SIZE;
 	static final int DELAY = 75;
 	final int x[]=new int[GAME_UNITS];
@@ -23,16 +23,23 @@ public class GamePanel extends JPanel implements ActionListener{
 	Timer timer;
 	Random random;
 	
-	//background of the game
-	GamePanel(){
-		random = new Random();
+	private GameFrame gameFrame;
+	private HighScoreManager highScoreManager;
+	
+	public GamePanel(GameFrame frame, Dimension screenSize, HighScoreManager hsm) {
+	    this.gameFrame = frame;
+	    this.highScoreManager = hsm;
+	    SCREEN_WIDTH = screenSize.width;
+	    SCREEN_HEIGHT = screenSize.height;
+	    random = new Random();
 		this.setPreferredSize(new Dimension(SCREEN_WIDTH,SCREEN_HEIGHT));
 		this.setBackground(Color.black);
 		this.setFocusable(true);
 		this.addKeyListener(new MyKeyAdapter());
 		startGame();;
-		
 	}
+	
+	
 	public void startGame() {
 		newApple();
 		running = true;
@@ -64,10 +71,6 @@ public class GamePanel extends JPanel implements ActionListener{
 				}
 				else {
 					g.setColor(new Color(45,100,0));
-					/*If you want to change the color of the snake randomly
-					 
-					g.setColor(new Color(random.nextInt(255),random.nextInt(255),random.nextInt(255)));
-					*/
 					g.fillRect(x[i], y[i], UNIT_SIZE, UNIT_SIZE);
 				}
 			}
@@ -82,40 +85,46 @@ public class GamePanel extends JPanel implements ActionListener{
 		
 	}
 	public void newApple() {
-		appleX = random.nextInt((int)(SCREEN_WIDTH/UNIT_SIZE))*UNIT_SIZE;
-		appleY = random.nextInt((int)(SCREEN_HEIGHT/UNIT_SIZE))*UNIT_SIZE;
-
-		
+	    boolean validPosition;
+	    do {
+	        appleX = random.nextInt(SCREEN_WIDTH/UNIT_SIZE) * UNIT_SIZE;
+	        appleY = random.nextInt(SCREEN_HEIGHT/UNIT_SIZE) * UNIT_SIZE;
+	        validPosition = true;
+	        
+	        // Check against snake body
+	        for(int i = 0; i < bodyParts; i++) {
+	            if(appleX == x[i] && appleY == y[i]) {
+	                validPosition = false;
+	                break;
+	            }
+	        }
+	    } while(!validPosition);
 	}
+	
 	public void move() {
-		for(int i = bodyParts; i>0; i--) {
-			x[i] = x[i-1];
-			y[i] = y[i-1];
+	    // Update body positions (follow the head)
+	    for(int i = bodyParts; i > 0; i--) {
+	        x[i] = x[i-1];
+	        y[i] = y[i-1];
+	    }
 
-			
-		}
-		switch(direction) {
-		case 'U':
-			y[0] = y[0] - UNIT_SIZE;
-			break;
-		}
-		switch(direction) {
-		case 'D':
-			y[0] = y[0] + UNIT_SIZE;
-			break;
-		}
-		switch(direction) {
-		case 'L':
-			x[0] = x[0] - UNIT_SIZE;
-			break;
-		}
-		switch(direction) {
-		case 'R':
-			x[0] = x[0] + UNIT_SIZE;
-			break;
-		}
-		
+	    // Update head position based on direction
+	    switch(direction) {
+	        case 'U':
+	            y[0] -= UNIT_SIZE;
+	            break;
+	        case 'D':
+	            y[0] += UNIT_SIZE;
+	            break;
+	        case 'L':
+	            x[0] -= UNIT_SIZE;
+	            break;
+	        case 'R':
+	            x[0] += UNIT_SIZE;
+	            break;
+	    }
 	}
+	
 	public void checkApple() {
 		if((x[0] == appleX)&&(y[0] == appleY)) {
 			bodyParts++;
@@ -153,6 +162,7 @@ public class GamePanel extends JPanel implements ActionListener{
 		
 	}
 	public void gameOver(Graphics g) {
+		highScoreManager.checkAndUpdateHighScore(appleEaten);
 		//Display the score
 		g.setColor(Color.red);
 		g.setFont(new Font("Ink Free",Font.BOLD,40));
@@ -165,6 +175,12 @@ public class GamePanel extends JPanel implements ActionListener{
 		FontMetrics metrics2 = getFontMetrics(g.getFont());
 		g.drawString("Game Over", (SCREEN_WIDTH - metrics2.stringWidth("Game Over"))/2, SCREEN_HEIGHT/2);
 		
+	}
+	public void adjustSize(Dimension newSize) {
+	    SCREEN_WIDTH = newSize.width;
+	    SCREEN_HEIGHT = newSize.height;
+	    UNIT_SIZE = Math.min(SCREEN_WIDTH, SCREEN_HEIGHT) / 24; // Dynamic unit size
+	    repaint();
 	}
 	
 
@@ -206,10 +222,32 @@ public class GamePanel extends JPanel implements ActionListener{
 					direction = 'D';
 				}
 				break;
-			
+				
+			case KeyEvent.VK_SPACE:
+				if (!running) {
+                    // Full game reset
+                    timer.stop();          // Stop existing timer
+                    bodyParts = 6;         // Reset snake length
+                    appleEaten = 0;        // Reset score
+                    direction = 'R';       // Force initial direction
+                    initializeSnake();     // Reset positions
+                    newApple();            // Generate new apple
+                    running = true;        // Enable game loop
+                    timer.start();         // Start fresh timer
+                }
+                break;
 			}
-			
+		}
+
+		private void initializeSnake() {
+			int startX = (SCREEN_WIDTH / 2 / UNIT_SIZE) * UNIT_SIZE;  // Grid-aligned X
+		    int startY = (SCREEN_HEIGHT / 2 / UNIT_SIZE) * UNIT_SIZE; // Grid-aligned Y
+		    for (int i = 0; i < bodyParts; i++) {
+		        x[i] = startX - (i * UNIT_SIZE);
+		        y[i] = startY;
+	    }
 		}
 	}
-
 }
+
+
